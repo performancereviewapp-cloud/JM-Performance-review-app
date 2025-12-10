@@ -1,4 +1,5 @@
 // Authentication Logic
+logToScreen("auth.js: Script Starting...");
 
 const myMSALObj = new msal.PublicClientApplication(msalConfig);
 

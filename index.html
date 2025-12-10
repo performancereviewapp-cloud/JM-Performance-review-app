@@ -53,6 +53,22 @@
 </head>
 
 <body>
+    <!-- On-Screen Debugger -->
+    <div id="debugLog"
+        style="position:fixed; top:0; left:0; width:100%; height:150px; background:rgba(0,0,0,0.9); color:#0f0; font-family:monospace; font-size:12px; overflow-y:scroll; z-index:9999; padding:10px; pointer-events:none;">
+        Starting System...<br>
+    </div>
+    <script>
+        function logToScreen(msg) {
+            const d = document.getElementById('debugLog');
+            if (d) {
+                d.innerHTML += new Date().toISOString().split('T')[1].slice(0, -1) + ": " + msg + "<br>";
+                d.scrollTop = d.scrollHeight;
+            }
+        }
+        window.onerror = function (msg, url, line) { logToScreen("ERROR: " + msg + " (" + url + ":" + line + ")"); };
+        logToScreen("HTML Loaded. Waiting for scripts...");
+    </script>
 
     <!-- Login Screen -->
     <div id="loginScreen" class="login-container">
