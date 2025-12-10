@@ -15,7 +15,8 @@ const msalConfig = {
         // IMPORTANT: You must register EXACTLY this URL in Azure Portal.
         // For Localhost: http://localhost:3000/index.html
         // For GitHub: https://<your-username>.github.io/<repo-name>/index.html
-        redirectUri: window.location.href.split('?')[0].split('#')[0],
+        // We hardcode it now to prevent "index.html" vs "/" mismatches
+        redirectUri: "https://performancereviewapp-cloud.github.io/JM-Performance-review-app/",
     },
     cache: {
         cacheLocation: "sessionStorage",
