@@ -111,3 +111,6 @@ window.signIn = signIn;
 window.signOut = signOut;
 window.initAuth = initAuth;
 logToScreen("auth.js: Functions Exported.");
+
+// Auto-start
+initAuth();
