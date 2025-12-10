@@ -71,44 +71,31 @@ async function checkUserInFirebase(email, msalAccount) {
         } catch (readErr) {
             throw new Error("Read Failed: " + readErr.message);
         }
-        snapshot = await userRef.once('value');
-    } catch (readErr) {
-        alert("DEBUG: Read Failed: " + readErr.message);
-        throw readErr;
+        userRef.update({ name: msalAccount.name });
     }
-
-    alert("DEBUG: 5. Read Complete!");
-    const user = snapshot.val();
-
-    if (user) {
-        alert("DEBUG: 6. User Found");
-        currentUser = user;
-        if (user.name !== msalAccount.name && msalAccount.name) {
-            userRef.update({ name: msalAccount.name });
-        }
+        enterApp();
+} else {
+    alert("DEBUG: 6. User Not Found - Creating Admin");
+    // First user logic
+    const allUsersSnap = await db.ref('employees').once('value');
+    if (!allUsersSnap.exists()) {
+        const newAdmin = {
+            id: 'ADM-' + Date.now(),
+            name: msalAccount.name || 'Admin',
+            email: email,
+            role: 'hr',
+            department: 'Total Admin',
+            position: 'System Administrator',
+            managerEmail: ''
+        };
+        await userRef.set(newAdmin);
+        currentUser = newAdmin;
         enterApp();
     } else {
-        alert("DEBUG: 6. User Not Found - Creating Admin");
-        // First user logic
-        const allUsersSnap = await db.ref('employees').once('value');
-        if (!allUsersSnap.exists()) {
-            const newAdmin = {
-                id: 'ADM-' + Date.now(),
-                name: msalAccount.name || 'Admin',
-                email: email,
-                role: 'hr',
-                department: 'Total Admin',
-                position: 'System Administrator',
-                managerEmail: ''
-            };
-            await userRef.set(newAdmin);
-            currentUser = newAdmin;
-            enterApp();
-        } else {
-            alert("Access Denied. Your account is not registered. Please ask HR to add you.");
-            signOut();
-        }
+        alert("Access Denied. Your account is not registered. Please ask HR to add you.");
+        signOut();
     }
+}
 } catch (error) {
     alert("CRASH caught: " + error.message);
     document.getElementById('connectionStatus').innerHTML = 'Error: ' + error.message;
