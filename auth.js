@@ -106,3 +106,8 @@ function showSignInButton() {
         statusEl.style.display = 'none';
     }
 }
+// Explicit Exports
+window.signIn = signIn;
+window.signOut = signOut;
+window.initAuth = initAuth;
+logToScreen("auth.js: Functions Exported.");
