@@ -26,6 +26,29 @@
 
     <!-- App Configuration -->
     <script src="config.js"></script>
+    <script>
+        // Global Error Handler - The "Nuclear Option" to find silent bugs
+        window.onerror = function (msg, url, line, col, error) {
+            const status = document.getElementById('connectionStatus');
+            if (status) {
+                status.innerHTML = `<div style="color:red; font-weight:bold; border:1px solid red; padding:5px;">
+                    CRASH: ${msg}<br>
+                    <small>${url}:${line}</small>
+                </div>`;
+            }
+            alert("App Crash: " + msg);
+            return false;
+        };
+        window.onunhandledrejection = function (event) {
+            const status = document.getElementById('connectionStatus');
+            if (status) {
+                status.innerHTML = `<div style="color:red; font-weight:bold; border:1px solid red; padding:5px;">
+                    PROMISE FAIL: ${event.reason}<br>
+                </div>`;
+            }
+            alert("Promise Error: " + event.reason);
+        };
+    </script>
     <script src="firebase-init.js"></script>
 </head>
 

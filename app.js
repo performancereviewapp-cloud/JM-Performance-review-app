@@ -18,10 +18,11 @@ async function onO365Ready(accessToken, msalAccount) {
 }
 
 // 2. Firebase Data Logic
+// 2. Firebase Data Logic
 async function checkUserInFirebase(email, msalAccount) {
-    console.log("Checking path: employees/" + sanitizeEmail(email));
-
     try {
+        console.log("Checking path: employees/" + sanitizeEmail(email));
+
         // 1. Sanity Check
         if (!window.db) {
             throw new Error("Firebase SDK not initialized. (db is missing)");
