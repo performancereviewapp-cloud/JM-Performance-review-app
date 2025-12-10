@@ -55,6 +55,7 @@ function signIn() {
         .catch(error => {
             logToScreen("auth.js: Login Popup Error: " + error.message);
             console.error(error);
+            alert("Login Failed: " + error.message + "\n\n(Check if popup was blocked)");
         });
 }
 

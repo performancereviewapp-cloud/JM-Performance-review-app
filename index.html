@@ -65,10 +65,11 @@
         <div class="login-box">
             <h1>JM Group Inc</h1>
             <p style="color:#64748b">Performance Review System</p>
-            <p style="color:#ea580c; font-size: 0.9rem; margin-top:5px; font-weight:bold;">Version 2.3</p>
+            <p style="color:#ea580c; font-size: 0.9rem; margin-top:5px; font-weight:bold;">Version 2.4</p>
             <div id="connectionStatus" style="margin: 20px 0; font-size: 0.9rem;">Ready to Sign In</div>
 
-            <button id="signInBtn" class="btn-microsoft" onclick="signIn()">
+            <button id="signInBtn" class="btn-microsoft"
+                onclick="if(window.signIn) signIn(); else alert('Error: Auth Script not loaded. Please refresh or check adblocker.');">
                 <div style="display:flex; align-items:center; padding: 10px 20px; gap:10px;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 23 23">
                         <path fill="#f35022" d="M1 1h10v10H1z" />
@@ -208,8 +209,8 @@
     </div>
 
     <!-- Scripts -->
-    <script src="auth.js?v=fixed_sign_in_v10"></script>
-    <script src="app-v2.js?v=fixed_sign_in_v10"></script>
+    <script src="auth.js?v=fixed_sign_in_v11"></script>
+    <script src="app-v2.js?v=fixed_sign_in_v11"></script>
 </body>
 
 </html>
