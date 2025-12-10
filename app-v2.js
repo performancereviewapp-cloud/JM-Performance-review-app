@@ -374,6 +374,7 @@ function refreshManagerData() {
 function showHRView() {
     document.getElementById('hrView').style.display = 'block';
     renderEmployeeList();
+    if (window.renderHRReviews) renderHRReviews();
 }
 
 function renderEmployeeList() {
@@ -618,38 +619,146 @@ function openReviewModal(type, reviewId = null) {
     // Logic to populate if editing...
     currentReviewId = reviewId;
 
+    let review = null;
     if (reviewId) {
-        const review = dbData.reviews.find(r => r.id === reviewId);
-        if (review) {
-            document.getElementById('reviewPeriod').value = review.period;
-            document.getElementById('selfAchievements').value = review.selfAchievements;
-            document.getElementById('selfImprovements').value = review.selfImprovements;
-            document.getElementById('selfRating').value = review.selfRating;
+        review = dbData.reviews.find(r => r.id === reviewId);
+    }
 
-            if (review.managerComments) document.getElementById('managerComments').value = review.managerComments;
-            if (review.managerRating) document.getElementById('managerRating').value = review.managerRating;
+    // Locked (Read-Only) Mode
+    const isLocked = (review && review.status === 'completed');
 
-            // Show export if completed
-            if (review.status === 'completed') {
-                document.getElementById('btnExportPDF').style.display = 'inline-block';
-            } else {
-                document.getElementById('btnExportPDF').style.display = 'none';
-            }
+    // Disable/Enable fields based on locked status
+    const inputs = form.querySelectorAll('input, textarea, select');
+    inputs.forEach(input => {
+        input.disabled = isLocked;
+    });
+
+    // Except hidden IDs and export button
+    document.getElementById('reviewId').disabled = false;
+    document.getElementById('reviewType').disabled = false;
+
+    // Buttons visibility
+    const btnSubmit = document.querySelector('#reviewForm button[type="submit"]');
+    if (btnSubmit) btnSubmit.style.display = isLocked ? 'none' : 'block';
+
+    const modalTitle = document.getElementById('reviewModalTitle');
+    if (isLocked) {
+        modalTitle.textContent = "Review Details (Locked)";
+        modalTitle.style.color = "#64748b";
+    } else {
+        modalTitle.style.color = "#1e293b";
+    }
+
+    if (review) {
+        document.getElementById('reviewPeriod').value = review.period;
+        document.getElementById('selfAchievements').value = review.selfAchievements;
+        document.getElementById('selfImprovements').value = review.selfImprovements;
+        document.getElementById('selfRating').value = review.selfRating;
+
+        if (review.managerComments) document.getElementById('managerComments').value = review.managerComments;
+        if (review.managerRating) document.getElementById('managerRating').value = review.managerRating;
+
+        // Show export if completed
+        if (review.status === 'completed') {
+            document.getElementById('btnExportPDF').style.display = 'inline-block';
+        } else {
+            document.getElementById('btnExportPDF').style.display = 'none';
         }
     } else {
         document.getElementById('btnExportPDF').style.display = 'none';
+
+        // Ensure fields are unlocked for new reviews
+        inputs.forEach(input => input.disabled = false);
+        if (btnSubmit) btnSubmit.style.display = 'block';
+        modalTitle.style.color = "#1e293b";
     }
 
     // Show/Hide sections
     if (type === 'manager') {
         document.getElementById('managerSection').style.display = 'block';
-        document.getElementById('reviewModalTitle').textContent = "Manager Review";
+        if (!isLocked) document.getElementById('reviewModalTitle').textContent = "Manager Review";
     } else {
         document.getElementById('managerSection').style.display = 'none';
-        document.getElementById('reviewModalTitle').textContent = "Self Review";
+        if (!isLocked) document.getElementById('reviewModalTitle').textContent = "Self Review";
     }
 
     modal.style.display = 'flex';
+}
+
+function renderHRReviews() {
+    const list = document.getElementById('hrReviewsList');
+    if (!list) return;
+
+    // Filter reviews (user asked for submitted, usually HR sees all)
+    const reviews = dbData.reviews || [];
+
+    if (reviews.length === 0) {
+        list.innerHTML = '<p style="padding:20px; color:gray">No reviews found.</p>';
+        return;
+    }
+
+    let html = `
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Period</th>
+                        <th>Employee</th>
+                        <th>Manager</th>
+                        <th>Ratings (Self/Mgr)</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    html += reviews.map(r => {
+        const isCompleted = r.status === 'completed';
+        const statusBadge = isCompleted
+            ? '<span class="badge badge-active">Completed</span>'
+            : '<span class="badge badge-disabled">Pending</span>';
+
+        return `
+            <tr>
+                <td>${r.period}</td>
+                <td>${r.employeeName}</td>
+                <td>${r.managerEmail || '-'}</td>
+                <td>
+                    <span style="font-weight:bold">${r.selfRating}</span> / 
+                    <span style="font-weight:bold; color:#2563eb">${r.managerRating || '-'}</span>
+                </td>
+                <td>${statusBadge}</td>
+                <td>
+                    ${isCompleted ? `
+                    <button onclick="currentReviewId='${r.id}'; exportCurrentReviewPDF()" class="action-btn edit" style="padding:4px 8px" title="Export PDF">PDF</button>
+                    ` : ''}
+                    <button onclick="deleteReview('${r.id}')" class="action-btn delete" style="padding:4px 8px" title="Delete Review">Delete</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    html += `</tbody></table></div>`;
+    list.innerHTML = html;
+}
+
+async function deleteReview(rId) {
+    const review = dbData.reviews.find(r => r.id === rId);
+    if (!review) return;
+
+    showConfirm(
+        "Delete Review?",
+        `Permanently delete review for ${review.employeeName} (${review.period})?`,
+        async () => {
+            try {
+                await db.ref('reviews/' + rId).remove();
+                showToast("Review Deleted", "warning");
+            } catch (e) {
+                showToast("Error: " + e.message, "error");
+            }
+        }
+    );
 }
 
 function closeReviewModal() {
