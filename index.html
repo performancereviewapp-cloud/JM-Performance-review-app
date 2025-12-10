@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Review System - O365 Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=1">
+    <!-- PDF Export Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- MSAL.js for O365 Authentication -->
+    <script type="text/javascript" src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
+</head>
+
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <div class="company-logo" style="text-align: center;">
+                <h2 style="color: var(--primary-blue-dark);">JM Group Inc</h2>
+                <h3 style="color: var(--text-secondary);">Performance Review System (O365)</h3>
+                <div id="connectionStatus" style="margin-top: 10px; color: orange;">🟠 Connecting to Microsoft 365...
+                </div>
+            </div>
+
+            <div class="login-form">
+                <h2>Sign In</h2>
+                <p style="text-align: center; margin-bottom: 2rem;">
+                    Sign in with your Microsoft 365 Work Account
+                </p>
+                <button onclick="signIn()" class="btn btn-primary"
+                    style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 23 23">
+                        <path fill="#f35022" d="M1 1h10v10H1z" />
+                        <path fill="#80bb03" d="M12 1h10v10H12z" />
+                        <path fill="#03a5f0" d="M1 12h10v10H1z" />
+                        <path fill="#ffba08" d="M12 12h10v10H12z" />
+                    </svg>
+                    Sign in with Microsoft
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="main-app" style="display: none;">
+        <!-- Header -->
+        <header id="appHeader" class="app-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div>
+                        <h1>J&M Group Inc</h1>
+                        <p class="subtitle">Performance Review System</p>
+                    </div>
+                </div>
+                <div class="user-info">
+                    <span id="userWelcome">Welcome</span>
+                    <button onclick="signOut()" class="btn btn-logout">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Containers (Same IDs as original app.js expects) -->
+        <div id="employeeView" class="view-container" style="display: none;">
+            <!-- Content injected by app.js -->
+            <h2>Employee Dashboard</h2>
+            <div id="employeeInfo" style="margin-bottom: 1rem;"></div>
+
+            <div id="employeeReviewsList"></div>
+            <div id="employeeStartReviewBtn" style="margin-top: 1rem;"></div>
+        </div>
+
+        <div id="managerView" class="view-container" style="display: none;">
+            <h2>Manager Dashboard</h2>
+            <div id="managerInfo" style="margin-bottom: 1rem;"></div>
+
+            <h3>Pending Reviews</h3>
+            <div id="pendingSelfReviews"></div>
+
+            <h3>My Team</h3>
+            <div id="managerTeamList"></div>
+        </div>
+
+        <div id="hrView" class="view-container" style="display: none;">
+            <h2>HR Dashboard</h2>
+            <div style="margin-bottom: 1rem;">
+                <button onclick="showAddEmployeeForm()" class="btn btn-primary">+ Add Employee</button>
+            </div>
+
+            <h3>Employee Directory</h3>
+            <div id="employeeList"></div>
+
+            <h3>All Reviews</h3>
+            <div id="allReviewsList"></div>
+        </div>
+
+    </div>
+
+    <!-- Modals (Simplified placeholders - app.js renders content or toggles visibility) -->
+    <!-- Add Employee Modal -->
+    <div id="addEmployeeFormSection" class="popup-overlay" style="display: none;">
+        <div class="popup-content" style="max-width: 600px;">
+            <h3>Add New Employee</h3>
+            <form id="hrEmployeeForm">
+                <div class="form-group"><label>Name</label><input type="text" id="empName" required></div>
+                <div class="form-group"><label>Email</label><input type="email" id="empEmail" required></div>
+                <div class="form-group"><label>Department</label><input type="text" id="empDepartment" required></div>
+                <div class="form-group"><label>Position</label><input type="text" id="empPosition" required></div>
+                <div class="form-group"><label>Role</label>
+                    <select id="empRole">
+                        <option value="employee">Employee</option>
+                        <option value="manager">Manager</option>
+                        <option value="hr">HR</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="button" onclick="cancelEmployeeForm()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Config & Scripts -->
+    <script src="config.js?v=1"></script>
+    <script src="graph.js?v=1"></script>
+    <script src="auth.js?v=1"></script>
+    <script src="app.js?v=1"></script>
+
+    <script>
+        // Start Auth
+        initAuth();
+    </script>
+</body>
+
+</html>
