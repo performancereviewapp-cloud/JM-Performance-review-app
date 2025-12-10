@@ -476,37 +476,77 @@ function showAddEmployeeForm() {
     openEmployeeModal();
 }
 
+// --- Reusable Confirmation Modal ---
+function showConfirm(title, message, onConfirm) {
+    const modal = document.getElementById('confirmModal');
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+
+    const btnYes = document.getElementById('btnConfirmAction');
+    const btnNo = document.getElementById('btnConfirmCancel');
+
+    // Clone to remove old listeners
+    const newYes = btnYes.cloneNode(true);
+    const newNo = btnNo.cloneNode(true);
+    btnYes.parentNode.replaceChild(newYes, btnYes);
+    btnNo.parentNode.replaceChild(newNo, btnNo);
+
+    newYes.onclick = () => {
+        modal.style.display = 'none';
+        onConfirm();
+    };
+
+    newNo.onclick = () => {
+        modal.style.display = 'none';
+    };
+
+    // Close on click outside
+    modal.onclick = (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    }
+
+    modal.style.display = 'flex';
+}
+
 async function toggleEmployeeStatus(empId) {
     const emp = dbData.employees.find(e => e.id === empId);
     if (!emp) return;
 
-    const newStatus = !emp.isDisabled; // toggle
-    const list = dbData.employees; // local copy ref
+    const action = emp.isDisabled ? 'enable' : 'disable';
+    const cleanEmail = sanitizeEmail(emp.email);
 
-    // Optimistic UI update or just wait for Firebase?
-    // Let's just write to Firebase
-    try {
-        await db.ref('employees/' + sanitizeEmail(emp.email)).update({ isDisabled: newStatus });
-        showToast(`User ${newStatus ? 'Disabled' : 'Activated'}`, "success");
-    } catch (e) {
-        showToast("Error: " + e.message, "error");
-    }
+    showConfirm(
+        `${action === 'enable' ? 'Enable' : 'Disable'} Access?`,
+        `Are you sure you want to ${action} access for ${emp.name}? ${action === 'disable' ? 'They will no longer be able to log in.' : 'They will be able to log in again.'}`,
+        async () => {
+            try {
+                await db.ref('employees/' + cleanEmail).update({ isDisabled: !emp.isDisabled });
+                showToast(`User ${action}d successfully.`, "success");
+            } catch (e) {
+                showToast("Error: " + e.message, "error");
+            }
+        }
+    );
 }
 
 async function deleteEmployee(empId) {
     const emp = dbData.employees.find(e => e.id === empId);
     if (!emp) return;
 
-    if (!confirm(`Are you sure you want to PERMANENTLY DELETE ${emp.name}? This action cannot be undone.`)) {
-        return;
-    }
+    const cleanEmail = sanitizeEmail(emp.email);
 
-    try {
-        await db.ref('employees/' + sanitizeEmail(emp.email)).remove();
-        showToast("Employee Deleted", "warning");
-    } catch (e) {
-        showToast("Error deleting: " + e.message, "error");
-    }
+    showConfirm(
+        "Delete Employee?",
+        `This will permanently remove ${emp.name} and all their data. This action CANNOT be undone.`,
+        async () => {
+            try {
+                await db.ref('employees/' + cleanEmail).remove();
+                showToast("Employee permanently deleted.", "warning");
+            } catch (e) {
+                showToast("Error deleting: " + e.message, "error");
+            }
+        }
+    );
 }
 
 
