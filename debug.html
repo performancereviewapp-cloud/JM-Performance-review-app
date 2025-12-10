@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Review System</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <!-- MSAL for Login -->
+    <script type="text/javascript" src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
+
+    <!-- PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- App Configuration -->
+    <script src="config.js"></script>
+    <script>
+        // Global Error Handler - The "Nuclear Option" to find silent bugs
+        window.onerror = function (msg, url, line, col, error) {
+            const status = document.getElementById('connectionStatus');
+            if (status) {
+                status.innerHTML = `<div style="color:red; font-weight:bold; border:1px solid red; padding:5px;">
+                    CRASH: ${msg}<br>
+                    <small>${url}:${line}</small>
+                </div>`;
+            }
+            alert("App Crash: " + msg);
+            return false;
+        };
+        window.onunhandledrejection = function (event) {
+            const status = document.getElementById('connectionStatus');
+            if (status) {
+                status.innerHTML = `<div style="color:red; font-weight:bold; border:1px solid red; padding:5px;">
+                    PROMISE FAIL: ${event.reason}<br>
+                </div>`;
+            }
+            alert("Promise Error: " + event.reason);
+        };
+    </script>
+    <script src="firebase-init.js"></script>
+</head>
+
+<body>
+    <!-- On-Screen Debugger -->
+    <div id="debugLog"
+        style="position:fixed; top:0; left:0; width:100%; height:150px; background:rgba(0,0,0,0.9); color:#0f0; font-family:monospace; font-size:12px; overflow-y:scroll; z-index:99999; padding:10px; pointer-events:none;">
+        <strong>DEBUG.HTML LOADED</strong><br>
+        Starting System...<br>
+    </div>
+    <script>
+        function logToScreen(msg) {
+            const d = document.getElementById('debugLog');
+            if (d) {
+                d.innerHTML += new Date().toISOString().split('T')[1].slice(0, -1) + ": " + msg + "<br>";
+                d.scrollTop = d.scrollHeight;
+            }
+        }
+        window.onerror = function (msg, url, line) { logToScreen("ERROR: " + msg + " (" + url + ":" + line + ")"); };
+        logToScreen("HTML Loaded. Waiting for scripts...");
+    </script>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <h1>JM Group Inc</h1>
+            <p style="color:#64748b">Performance Review System</p>
+            <p style="color:#ea580c; font-size: 0.9rem; margin-top:5px; font-weight:bold;">Version 2.2 (Debug Mode)</p>
+            <div id="connectionStatus" style="margin: 20px 0; font-size: 0.9rem;">Ready to Sign In</div>
+
+            <button id="signInBtn" class="btn-microsoft" onclick="signIn()">
+                <div style="display:flex; align-items:center; padding: 10px 20px; gap:10px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 23 23">
+                        <path fill="#f35022" d="M1 1h10v10H1z" />
+                        <path fill="#80bb03" d="M12 1h10v10H12z" />
+                        <path fill="#03a5f0" d="M1 12h10v10H1z" />
+                        <path fill="#ffba08" d="M12 12h10v10H12z" />
+                    </svg>
+                    <span>Sign in with Microsoft</span>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main App (Hidden until login) -->
+    <div id="mainApp" style="display: none;">
+        <div class="app-layout">
+            <!-- Sidebar -->
+            <nav class="sidebar">
+                <div class="sidebar-header">
+                    Admin Portal
+                </div>
+                <ul class="sidebar-menu">
+                    <li><a href="#" onclick="showSection('dashboard')" class="active">Dashboard</a></li>
+                    <li id="menuTeam" style="display:none"><a href="#" onclick="showSection('team')">My Team</a></li>
+                    <li id="menuReviews" style="display:none"><a href="#" onclick="showSection('reviews')">Reviews</a>
+                    </li>
+                    <li id="menuAdmin" style="display:none"><a href="#" onclick="showSection('admin')">Employees</a>
+                    </li>
+                </ul>
+                <div class="sidebar-footer">
+                    <div id="userWelcome" class="user-info">User</div>
+                    <button onclick="signOut()" class="btn-logout">Sign Out</button>
+                </div>
+            </nav>
+
+            <!-- Content Area -->
+            <main class="content-area">
+
+                <!-- EMPLOYEE VIEW -->
+                <div id="employeeView" style="display:none">
+                    <div class="header-actions">
+                        <h2>My Performance</h2>
+                        <div id="employeeInfo" style="color:#64748b"></div>
+                    </div>
+                    <div id="employeeReviewsList" class="cards-grid"></div>
+                </div>
+
+                <!-- MANAGER VIEW -->
+                <div id="managerView" style="display:none">
+                    <h2>Manager Dashboard</h2>
+                    <div id="managerInfo" style="margin-bottom:20px;"></div>
+
+                    <h3 style="margin-top:30px; border-bottom:1px solid #cbd5e1; padding-bottom:10px;">Pending Reviews
+                    </h3>
+                    <div id="pendingSelfReviews" class="cards-grid" style="margin-bottom:30px;"></div>
+
+                    <h3 style="border-bottom:1px solid #cbd5e1; padding-bottom:10px;">My Team</h3>
+                    <div id="managerTeamList" class="list-view"></div>
+                </div>
+
+                <!-- HR VIEW -->
+                <div id="hrView" style="display:none">
+                    <div class="header-actions">
+                        <h2>Employee Management</h2>
+                        <button onclick="showAddEmployeeForm()" class="btn btn-primary">+ Add Employee</button>
+                    </div>
+                    <div id="employeeList" class="list-view"></div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div id="reviewModal" class="popup-overlay" style="display: none;">
+        <div class="popup-content" style="max-width: 800px;">
+            <h3 id="reviewModalTitle">Performance Review</h3>
+            <form id="reviewForm">
+                <input type="hidden" id="reviewId">
+                <input type="hidden" id="reviewType">
+
+                <div class="form-group">
+                    <label>Review Period</label>
+                    <input type="text" id="reviewPeriod" placeholder="e.g. Q4 2024" required>
+                </div>
+
+                <!-- Self Section -->
+                <div class="section-title" style="margin-top:20px; font-weight:bold; color:#1e3c72;">Self Evaluation
+                </div>
+                <div class="form-group">
+                    <label>Key Achievements</label>
+                    <textarea id="selfAchievements" rows="4" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Areas for Improvement</label>
+                    <textarea id="selfImprovements" rows="4" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Self Rating (1-5)</label>
+                    <select id="selfRating" required>
+                        <option value="5">5 - Outstanding</option>
+                        <option value="4">4 - Exceeds Expectations</option>
+                        <option value="3">3 - Meets Expectations</option>
+                        <option value="2">2 - Needs Improvement</option>
+                        <option value="1">1 - Unsatisfactory</option>
+                    </select>
+                </div>
+
+                <!-- Manager Section -->
+                <div id="managerSection"
+                    style="display: none; border-top: 1px solid #ccc; margin-top: 20px; padding-top: 20px; background:#f8fafc; padding:15px; border-radius:4px;">
+                    <div class="section-title" style="font-weight:bold; color:#1e3c72;">Manager Evaluation</div>
+                    <div class="form-group">
+                        <label>Manager Comments</label>
+                        <textarea id="managerComments" rows="4"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Manager Rating (1-5)</label>
+                        <select id="managerRating">
+                            <option value="5">5 - Outstanding</option>
+                            <option value="4">4 - Exceeds Expectations</option>
+                            <option value="3">3 - Meets Expectations</option>
+                            <option value="2">2 - Needs Improvement</option>
+                            <option value="1">1 - Unsatisfactory</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="btnExportPDF" onclick="exportCurrentReviewPDF()" class="btn btn-secondary"
+                        style="background:#ef4444; margin-right:auto;">Export PDF</button>
+                    <button type="button" onclick="closeReviewModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Review</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="auth.js"></script>
+    <script src="app-v2.js"></script>
+</body>
+
+</html>
