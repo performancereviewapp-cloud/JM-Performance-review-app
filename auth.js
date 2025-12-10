@@ -1,10 +1,25 @@
 // Authentication Logic
-logToScreen("auth.js: Script Starting...");
+try {
+    logToScreen("auth.js: Script Starting...");
 
-const myMSALObj = new msal.PublicClientApplication(msalConfig);
+    // Check Dependencies
+    if (typeof msal === 'undefined') {
+        throw new Error("MSAL Library not loaded from CDN.");
+    }
+    if (typeof msalConfig === 'undefined') {
+        throw new Error("msalConfig not found. using default.");
+    }
 
-let username = "";
-let accessToken = null;
+    const myMSALObj = new msal.PublicClientApplication(msalConfig);
+
+    // Explicitly Attach to Window to prevent Scope issues
+    window.myMSALObj = myMSALObj;
+    window.username = "";
+
+} catch (e) {
+    console.error(e);
+    if (window.logToScreen) logToScreen("auth.js CRASH: " + e.message);
+}
 
 // Initial Load
 async function initAuth() {

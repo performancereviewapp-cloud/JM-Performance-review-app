@@ -5,6 +5,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Performance Review System</title>
+    <script>
+        // Global Error Handler - The "Nuclear Option" to find silent bugs
+        window.onerror = function (msg, url, line, col, error) {
+            const status = document.getElementById('connectionStatus');
+            if (status) {
+                status.innerHTML = `<div style="color:red; font-weight:bold; border:1px solid red; padding:5px;">
+                    CRASH: ${msg}<br>
+                    <small>${url}:${line}</small>
+                </div>`;
+            }
+            // Also log to debug div if it exists later
+            const d = document.getElementById('debugLog');
+            if (d) d.innerHTML += "CRASH: " + msg + "<br>";
+
+            // alert("App Crash: " + msg); // Alert is annoying during load
+            return false;
+        };
+    </script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,27 +45,7 @@
     <!-- App Configuration -->
     <script src="config.js"></script>
     <script>
-        // Global Error Handler - The "Nuclear Option" to find silent bugs
-        window.onerror = function (msg, url, line, col, error) {
-            const status = document.getElementById('connectionStatus');
-            if (status) {
-                status.innerHTML = `<div style="color:red; font-weight:bold; border:1px solid red; padding:5px;">
-                    CRASH: ${msg}<br>
-                    <small>${url}:${line}</small>
-                </div>`;
-            }
-            alert("App Crash: " + msg);
-            return false;
-        };
-        window.onunhandledrejection = function (event) {
-            const status = document.getElementById('connectionStatus');
-            if (status) {
-                status.innerHTML = `<div style="color:red; font-weight:bold; border:1px solid red; padding:5px;">
-                    PROMISE FAIL: ${event.reason}<br>
-                </div>`;
-            }
-            alert("Promise Error: " + event.reason);
-        };
+
     </script>
     <script src="firebase-init.js"></script>
 </head>
