@@ -8,28 +8,33 @@ let accessToken = null;
 
 // Initial Load
 async function initAuth() {
+    logToScreen("auth.js: initAuth called");
     try {
         const response = await myMSALObj.handleRedirectPromise();
         if (response) {
+            logToScreen("auth.js: Handle Redirect Response");
             handleResponse(response);
         } else {
             // Check if user is already signed in
             const currentAccounts = myMSALObj.getAllAccounts();
             if (currentAccounts.length > 0) {
+                logToScreen("auth.js: User found in cache: " + currentAccounts[0].username);
                 username = currentAccounts[0].username;
                 showWelcomeMessage(currentAccounts[0]);
                 acquireToken();
             } else {
+                logToScreen("auth.js: No user, showing sign-in");
                 showSignInButton();
             }
         }
     } catch (error) {
-        console.error(error);
+        logToScreen("auth.js ERROR: " + error.message);
     }
 }
 
 function handleResponse(response) {
     if (response !== null) {
+        logToScreen("auth.js: Login Success for " + response.account.username);
         username = response.account.username;
         showWelcomeMessage(response.account);
         acquireToken();
@@ -38,25 +43,8 @@ function handleResponse(response) {
     }
 }
 
-function signIn() {
-    myMSALObj.loginPopup(loginRequest)
-        .then(handleResponse)
-        .catch(error => {
-            console.error(error);
-        });
-}
-
-function signOut() {
-    const logoutRequest = {
-        account: myMSALObj.getAccountByUsername(username),
-        postLogoutRedirectUri: msalConfig.auth.redirectUri,
-        mainWindowRedirectUri: msalConfig.auth.redirectUri
-    };
-    myMSALObj.logoutPopup(logoutRequest);
-}
-
-// Get Token for Graph API
 async function acquireToken() {
+    logToScreen("auth.js: acquiring token...");
     const request = {
         scopes: loginRequest.scopes,
         account: myMSALObj.getAccountByUsername(username)
@@ -65,27 +53,25 @@ async function acquireToken() {
     try {
         const response = await myMSALObj.acquireTokenSilent(request);
         accessToken = response.accessToken;
-
-        console.log("Token acquired.");
-        // Initialize App Data
+        logToScreen("auth.js: Token Acquired silently");
         document.getElementById('connectionStatus').textContent = '🟢 Connected to O365';
-        document.getElementById('connectionStatus').style.color = '#34a853'; // Green
+        document.getElementById('connectionStatus').style.color = '#34a853';
 
-        // Let the main app know we are ready
         if (typeof onO365Ready === 'function') {
+            logToScreen("auth.js: Calling onO365Ready...");
             onO365Ready(accessToken, response.account);
         }
-
     } catch (error) {
-        console.warn("Silent token acquisition failed. Acquiring via popup.", error);
+        logToScreen("auth.js: Silent token failed. Trying popup.");
         if (error instanceof msal.InteractionRequiredAuthError) {
             myMSALObj.acquireTokenPopup(request).then(response => {
+                logToScreen("auth.js: Popup Token Success");
                 accessToken = response.accessToken;
                 if (typeof onO365Ready === 'function') {
                     onO365Ready(accessToken, response.account);
                 }
             }).catch(error => {
-                console.error(error);
+                logToScreen("auth.js: Popup Token Failed: " + error.message);
             });
         }
     }
