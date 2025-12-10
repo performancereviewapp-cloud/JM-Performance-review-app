@@ -7,22 +7,33 @@ let dbData = { employees: [], reviews: [] };
 // --- 1. Auth & Initialization ---
 
 // Called by auth.js when login is successful (O365)
+// Called by auth.js when login is successful (O365)
 async function onO365Ready(accessToken, msalAccount) {
-    console.log("O365 Login Success. Checking Firebase...");
-    document.getElementById('connectionStatus').textContent = "Checking Database...";
+    logToScreen("onO365Ready: Function Started");
+    try {
+        console.log("O365 Login Success. Checking Firebase...");
+        document.getElementById('connectionStatus').textContent = "Checking Database...";
 
-    // IMMEDIATE CHECK: Did Firebase load?
-    if (!window.db) {
-        alert("CRITICAL ERROR: Firebase Database not loaded.\n\nPossible reasons:\n1. Ad blocker blocking 'runtime database'\n2. Slow network\n3. Bad Config\n\nCheck console for details.");
-        document.getElementById('connectionStatus').innerHTML = '<span style="color:red">Firebase SDK Missing</span>';
-        return;
+        // IMMEDIATE CHECK: Did Firebase load?
+        if (!window.db) {
+            logToScreen("onO365Ready: CRITICAL - No DB");
+            alert("CRITICAL ERROR: Firebase Database not loaded.");
+            document.getElementById('connectionStatus').innerHTML = '<span style="color:red">Firebase SDK Missing</span>';
+            return;
+        }
+
+        // Use email as key
+        const email = msalAccount.username.toLowerCase();
+        logToScreen("onO365Ready: Verified Email " + email);
+
+        // Check if user exists in Firebase
+        logToScreen("onO365Ready: Calling checkUserInFirebase...");
+        await checkUserInFirebase(email, msalAccount);
+        logToScreen("onO365Ready: checkUserInFirebase returned.");
+    } catch (e) {
+        logToScreen("onO365Ready FATAL ERROR: " + e.message);
+        console.error(e);
     }
-
-    // Use email as key
-    const email = msalAccount.username.toLowerCase();
-
-    // Check if user exists in Firebase
-    await checkUserInFirebase(email, msalAccount);
 }
 
 // 2. Firebase Data Logic
