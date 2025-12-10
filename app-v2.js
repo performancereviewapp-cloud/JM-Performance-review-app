@@ -156,11 +156,17 @@ async function enterApp() {
     document.getElementById('userWelcome').textContent = `${currentUser.name} (${currentUser.role.toUpperCase()})`;
 
     // Load All Data (Realtime Sync)
-    // We load everything for simplicity, filtering happens in UI.
-    // In strict enterprise, we would use Rules or specific queries.
+    // IMPORTANT: Capture the key so we can edit/delete consistently
     db.ref('employees').on('value', snap => {
         const val = snap.val();
-        dbData.employees = val ? Object.values(val) : [];
+        if (val) {
+            // Map keys onto objects
+            dbData.employees = Object.entries(val).map(([key, data]) => {
+                return { ...data, _firebaseKey: key };
+            });
+        } else {
+            dbData.employees = [];
+        }
         refreshUI();
     });
 
@@ -173,6 +179,52 @@ async function enterApp() {
     // Setup Sidebar
     setupSidebar();
     showSection('dashboard');
+}
+
+// ... [skipping unchanged] ...
+
+async function toggleEmployeeStatus(empId) {
+    const emp = dbData.employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    const action = emp.isDisabled ? 'enable' : 'disable';
+    // Use actual key if available, else fallback
+    const dbKey = emp._firebaseKey || sanitizeEmail(emp.email);
+
+    showConfirm(
+        `${action === 'enable' ? 'Enable' : 'Disable'} Access?`,
+        `Are you sure you want to ${action} access for ${emp.name}? ${action === 'disable' ? 'They will no longer be able to log in.' : 'They will be able to log in again.'}`,
+        async () => {
+            try {
+                await db.ref('employees/' + dbKey).update({ isDisabled: !emp.isDisabled });
+                showToast(`User ${action}d successfully.`, "success");
+            } catch (e) {
+                showToast("Error: " + e.message, "error");
+            }
+        }
+    );
+}
+
+async function deleteEmployee(empId) {
+    const emp = dbData.employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    // Use actual key if available
+    const dbKey = emp._firebaseKey || sanitizeEmail(emp.email);
+
+    showConfirm(
+        "Delete Employee?",
+        `This will permanently remove ${emp.name} and all their data. This action CANNOT be undone.`,
+        async () => {
+            try {
+                console.log("Attempting delete at path: employees/" + dbKey);
+                await db.ref('employees/' + dbKey).remove();
+                showToast("Employee permanently deleted.", "warning");
+            } catch (e) {
+                showToast("Error deleting: " + e.message, "error");
+            }
+        }
+    );
 }
 
 // --- 3. UI Logic ---
@@ -513,14 +565,15 @@ async function toggleEmployeeStatus(empId) {
     if (!emp) return;
 
     const action = emp.isDisabled ? 'enable' : 'disable';
-    const cleanEmail = sanitizeEmail(emp.email);
+    // Use actual key if available, else fallback
+    const dbKey = emp._firebaseKey || sanitizeEmail(emp.email);
 
     showConfirm(
         `${action === 'enable' ? 'Enable' : 'Disable'} Access?`,
         `Are you sure you want to ${action} access for ${emp.name}? ${action === 'disable' ? 'They will no longer be able to log in.' : 'They will be able to log in again.'}`,
         async () => {
             try {
-                await db.ref('employees/' + cleanEmail).update({ isDisabled: !emp.isDisabled });
+                await db.ref('employees/' + dbKey).update({ isDisabled: !emp.isDisabled });
                 showToast(`User ${action}d successfully.`, "success");
             } catch (e) {
                 showToast("Error: " + e.message, "error");
@@ -533,14 +586,16 @@ async function deleteEmployee(empId) {
     const emp = dbData.employees.find(e => e.id === empId);
     if (!emp) return;
 
-    const cleanEmail = sanitizeEmail(emp.email);
+    // Use actual key if available
+    const dbKey = emp._firebaseKey || sanitizeEmail(emp.email);
 
     showConfirm(
         "Delete Employee?",
         `This will permanently remove ${emp.name} and all their data. This action CANNOT be undone.`,
         async () => {
             try {
-                await db.ref('employees/' + cleanEmail).remove();
+                console.log("Attempting delete at path: employees/" + dbKey);
+                await db.ref('employees/' + dbKey).remove();
                 showToast("Employee permanently deleted.", "warning");
             } catch (e) {
                 showToast("Error deleting: " + e.message, "error");
