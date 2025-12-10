@@ -238,7 +238,9 @@ function setupSidebar() {
 
 function showSection(sectionId) {
     // Hide all
-    ['employeeView', 'managerView', 'hrView'].forEach(id => document.getElementById(id).style.display = 'none');
+    ['employeeView', 'managerView', 'hrView', 'reviewsView'].forEach(id => {
+        if (document.getElementById(id)) document.getElementById(id).style.display = 'none';
+    });
 
     // Reset Active Links
     document.querySelectorAll('.sidebar-menu a').forEach(a => a.classList.remove('active'));
@@ -258,6 +260,24 @@ function showSection(sectionId) {
     } else if (sectionId === 'team') {
         showManagerView();
         document.getElementById('menuTeam').querySelector('a').classList.add('active');
+    } else if (sectionId === 'reviews') {
+        document.getElementById('reviewsView').style.display = 'block';
+        document.getElementById('menuReviews').querySelector('a').classList.add('active');
+        if (currentUser.role === 'hr') {
+            renderHRReviews();
+        } else {
+            // Managers might see something else here, or just their team reviews? 
+            // For now, let's show HR reviews logic but filtered, or just blank if not HR.
+            // Requirement was specific to HR needing "All Reviews" tab.
+            // If manager clicks this, maybe reusing HR view but filtered? 
+            // For now assume strictly HR uses this tab for "All Reviews".
+            if (currentUser.role === 'manager') {
+                // Optional: Show manager's team reviews history here?
+                // For now, let's just show "Not Authorized" or reuse HR view if desired?
+                // Let's safe-guard:
+                document.getElementById('hrReviewsList').innerHTML = '<p>To view team reviews, use the Team Dashboard.</p>';
+            }
+        }
     } else if (sectionId === 'admin') {
         showHRView();
         document.getElementById('menuAdmin').querySelector('a').classList.add('active');
@@ -266,11 +286,10 @@ function showSection(sectionId) {
 
 function refreshUI() {
     // Re-render whatever view is open
-    // Ideally we detect current view. For now, we rely on click.
-    // But dashboard might need auto-update.
     if (document.getElementById('hrView').style.display === 'block') renderEmployeeList();
     if (document.getElementById('managerView').style.display === 'block') refreshManagerData();
     if (document.getElementById('employeeView').style.display === 'block') showEmployeeView();
+    if (document.getElementById('reviewsView').style.display === 'block' && currentUser.role === 'hr') renderHRReviews();
 }
 
 // --- Views ---
@@ -278,10 +297,15 @@ function refreshUI() {
 function showEmployeeView() {
     document.getElementById('employeeView').style.display = 'block';
     document.getElementById('employeeInfo').textContent = `${currentUser.position} - ${currentUser.department}`;
+    renderSelfReviewSection('employeeReviewsList');
+}
 
-    // Reviews
+function renderSelfReviewSection(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // Reviews where I am the employee
     const myReviews = dbData.reviews.filter(r => r.employeeEmail === currentUser.email);
-    const container = document.getElementById('employeeReviewsList');
 
     // Check if active review
     const active = myReviews.find(r => r.status !== 'completed' && r.status !== 'archived');
@@ -309,7 +333,7 @@ function showEmployeeView() {
     // Past Reviews
     const past = myReviews.filter(r => r.status === 'completed');
     if (past.length > 0) {
-        html += `<h3 style="grid-column: 1/-1; margin-top:20px;">History</h3>`;
+        html += `<h3 style="grid-column: 1/-1; margin-top:20px;">My History</h3>`;
         past.forEach(r => {
             html += `
             <div class="card">
@@ -325,19 +349,23 @@ function showEmployeeView() {
 
 function showManagerView() {
     document.getElementById('managerView').style.display = 'block';
+    // Render Self Review Section for Manager
+    renderSelfReviewSection('managerSelfReviews');
     refreshManagerData();
 }
 
 function refreshManagerData() {
     document.getElementById('managerInfo').textContent = "Team Overview";
 
-    // My Team
+    // My Team (Direct Reports)
+    // Dynamic Check: Employees who have ME as their manager RIGHT NOW
     const myTeam = dbData.employees.filter(e => e.managerEmail && e.managerEmail.toLowerCase() === currentUser.email.toLowerCase());
 
-    // Pending Reviews
+    // Pending Reviews: status is self-submitted AND employee is in myTeam
+    // This fixes the issue where reviews might miss the managerEmail stamp or have an old one.
     const pending = dbData.reviews.filter(r =>
-        (r.managerEmail && r.managerEmail.toLowerCase() === currentUser.email.toLowerCase()) &&
-        r.status === 'self-submitted'
+        r.status === 'self-submitted' &&
+        myTeam.some(e => e.email === r.employeeEmail)
     );
 
     // Render Pending
@@ -374,7 +402,7 @@ function refreshManagerData() {
 function showHRView() {
     document.getElementById('hrView').style.display = 'block';
     renderEmployeeList();
-    if (window.renderHRReviews) renderHRReviews();
+    // No longer rendering reviews here
 }
 
 function renderEmployeeList() {
