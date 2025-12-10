@@ -28,17 +28,17 @@ async function onO365Ready(accessToken, msalAccount) {
 // 2. Firebase Data Logic
 // 2. Firebase Data Logic
 async function checkUserInFirebase(email, msalAccount) {
-    alert("DEBUG: 1. Function Started");
+    logToScreen("Checking user in Firebase: " + email);
 
     try {
         if (!window.db) throw new Error("No DB");
-        alert("DEBUG: 2. DB Exists");
+        // alert("DEBUG: 2. DB Exists");
 
         const path = 'employees/' + sanitizeEmail(email);
-        alert("DEBUG: 3. Path is " + path);
+        // alert("DEBUG: 3. Path is " + path);
 
         const userRef = db.ref(path);
-        alert("DEBUG: 4. Ref Created. Reading now...");
+        // alert("DEBUG: 4. Ref Created. Reading now...");
 
         // DIRECT READ
         let snapshot;
