@@ -20,6 +20,27 @@ async function onO365Ready(accessToken, msalAccount) {
 // 2. Firebase Data Logic
 async function checkUserInFirebase(email, msalAccount) {
     console.log("Checking path: employees/" + sanitizeEmail(email));
+
+    // Test Connection first with timeout
+    try {
+        const connectedRef = db.ref(".info/connected");
+        // Race: Connection vs 5s Timeout
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error("Connection Timeout")), 5000);
+            connectedRef.once('value', snap => {
+                clearTimeout(timeout);
+                if (snap.val() === true) resolve();
+                // If false, it means offline but sdk loaded. Timeout acts as fallback.
+            });
+        });
+    } catch (e) {
+        if (e.message === "Connection Timeout") {
+            alert("Database Connection Failed!\n\nReason: The database does not exist or is blocked.\n\nFix: Go to Firebase Console -> Build -> Realtime Database -> Click 'Create Database'.");
+            document.getElementById('connectionStatus').innerHTML = '<span style="color:red">Connection Timed Out</span>';
+            return;
+        }
+    }
+
     const userRef = db.ref('employees/' + sanitizeEmail(email));
 
     try {
@@ -59,14 +80,7 @@ async function checkUserInFirebase(email, msalAccount) {
     } catch (error) {
         console.error("Firebase Error:", error);
         document.getElementById('connectionStatus').innerHTML = `<span style="color:red; font-weight:bold;">Error: ${error.message}</span>`;
-
-        if (error.code === 'PERMISSION_DENIED') {
-            alert("Setup Error: Database rules block access.\n\nGo to Firebase Console > Realtime Database > Rules.\nChange read/write to 'true' (Test Mode).");
-        } else if (error.code === 'FIREBASE_APP_DELETED') {
-            alert("Setup Error: Database not found.\n\nDid you enable 'Realtime Database' in the console?");
-        } else {
-            alert("Error connecting to database: " + error.message);
-        }
+        alert("Database Error: " + error.message);
     }
 }
 
