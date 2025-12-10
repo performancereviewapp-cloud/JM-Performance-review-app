@@ -39,63 +39,80 @@ async function onO365Ready(accessToken, msalAccount) {
 // 2. Firebase Data Logic
 // 2. Firebase Data Logic
 async function checkUserInFirebase(email, msalAccount) {
-    logToScreen("Checking user in Firebase: " + email);
+    logToScreen("checkUserInFirebase: Started for " + email);
 
     try {
         if (!window.db) throw new Error("No DB");
-        // alert("DEBUG: 2. DB Exists");
+        logToScreen("checkUserInFirebase: DB object exists");
 
-        const path = 'employees/' + sanitizeEmail(email);
-        // alert("DEBUG: 3. Path is " + path);
+        // Sanitize
+        logToScreen("checkUserInFirebase: Sanitizing email...");
+        let cleanEmail = email.replace(/[.#$[\]]/g, '_'); // Inline for safety
+        logToScreen("checkUserInFirebase: Sanitized email: " + cleanEmail);
+
+        const path = 'employees/' + cleanEmail;
+        logToScreen("checkUserInFirebase: Path: " + path);
 
         const userRef = db.ref(path);
-        // alert("DEBUG: 4. Ref Created. Reading now...");
+        logToScreen("checkUserInFirebase: Ref created. Starting query...");
 
-        // DIRECT READ
+        // DIRECT READ with Timeout
         let snapshot;
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Firebase Network Timeout (5s)")), 5000)
+        );
+
         try {
-            snapshot = await userRef.once('value');
+            snapshot = await Promise.race([
+                userRef.once('value'),
+                timeoutPromise
+            ]);
+            logToScreen("checkUserInFirebase: Query returned!");
         } catch (readErr) {
-            alert("DEBUG: Read Failed: " + readErr.message);
-            throw readErr;
+            throw new Error("Read Failed: " + readErr.message);
         }
+        snapshot = await userRef.once('value');
+    } catch (readErr) {
+        alert("DEBUG: Read Failed: " + readErr.message);
+        throw readErr;
+    }
 
-        alert("DEBUG: 5. Read Complete!");
-        const user = snapshot.val();
+    alert("DEBUG: 5. Read Complete!");
+    const user = snapshot.val();
 
-        if (user) {
-            alert("DEBUG: 6. User Found");
-            currentUser = user;
-            if (user.name !== msalAccount.name && msalAccount.name) {
-                userRef.update({ name: msalAccount.name });
-            }
+    if (user) {
+        alert("DEBUG: 6. User Found");
+        currentUser = user;
+        if (user.name !== msalAccount.name && msalAccount.name) {
+            userRef.update({ name: msalAccount.name });
+        }
+        enterApp();
+    } else {
+        alert("DEBUG: 6. User Not Found - Creating Admin");
+        // First user logic
+        const allUsersSnap = await db.ref('employees').once('value');
+        if (!allUsersSnap.exists()) {
+            const newAdmin = {
+                id: 'ADM-' + Date.now(),
+                name: msalAccount.name || 'Admin',
+                email: email,
+                role: 'hr',
+                department: 'Total Admin',
+                position: 'System Administrator',
+                managerEmail: ''
+            };
+            await userRef.set(newAdmin);
+            currentUser = newAdmin;
             enterApp();
         } else {
-            alert("DEBUG: 6. User Not Found - Creating Admin");
-            // First user logic
-            const allUsersSnap = await db.ref('employees').once('value');
-            if (!allUsersSnap.exists()) {
-                const newAdmin = {
-                    id: 'ADM-' + Date.now(),
-                    name: msalAccount.name || 'Admin',
-                    email: email,
-                    role: 'hr',
-                    department: 'Total Admin',
-                    position: 'System Administrator',
-                    managerEmail: ''
-                };
-                await userRef.set(newAdmin);
-                currentUser = newAdmin;
-                enterApp();
-            } else {
-                alert("Access Denied. Your account is not registered. Please ask HR to add you.");
-                signOut();
-            }
+            alert("Access Denied. Your account is not registered. Please ask HR to add you.");
+            signOut();
         }
-    } catch (error) {
-        alert("CRASH caught: " + error.message);
-        document.getElementById('connectionStatus').innerHTML = 'Error: ' + error.message;
     }
+} catch (error) {
+    alert("CRASH caught: " + error.message);
+    document.getElementById('connectionStatus').innerHTML = 'Error: ' + error.message;
+}
 }
 
 function sanitizeEmail(email) {
