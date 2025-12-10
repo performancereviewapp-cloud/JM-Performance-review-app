@@ -21,30 +21,35 @@ async function onO365Ready(accessToken, msalAccount) {
 async function checkUserInFirebase(email, msalAccount) {
     console.log("Checking path: employees/" + sanitizeEmail(email));
 
-    // Test Connection first with timeout
     try {
-        const connectedRef = db.ref(".info/connected");
-        // Race: Connection vs 5s Timeout
-        await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error("Connection Timeout")), 5000);
-            connectedRef.once('value', snap => {
-                clearTimeout(timeout);
-                if (snap.val() === true) resolve();
-                // If false, it means offline but sdk loaded. Timeout acts as fallback.
-            });
-        });
-    } catch (e) {
-        if (e.message === "Connection Timeout") {
-            alert("Database Connection Failed!\n\nReason: The database does not exist or is blocked.\n\nFix: Go to Firebase Console -> Build -> Realtime Database -> Click 'Create Database'.");
-            document.getElementById('connectionStatus').innerHTML = '<span style="color:red">Connection Timed Out</span>';
-            return;
+        // 1. Sanity Check
+        if (!window.db) {
+            throw new Error("Firebase SDK not initialized. (db is missing)");
         }
-    }
 
-    const userRef = db.ref('employees/' + sanitizeEmail(email));
+        // 2. Test Connection first with timeout
+        try {
+            const connectedRef = db.ref(".info/connected");
+            // Race: Connection vs 5s Timeout
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error("Connection Timeout")), 5000);
+                connectedRef.once('value', snap => {
+                    clearTimeout(timeout);
+                    if (snap.val() === true) resolve();
+                });
+            });
+        } catch (e) {
+            console.error("Connection Check Failed:", e);
+            if (e.message === "Connection Timeout") {
+                throw new Error("Connection Timeout: Database did not respond in 5s.");
+            }
+            // If it's another error (e.g. permission), we let it slide to the main logic which might catch it better, 
+            // OR we throw it here. Let's throw it to be safe.
+            throw e;
+        }
 
-    try {
-        // Changed to await for better error handling
+        // 3. Main Data Fetch
+        const userRef = db.ref('employees/' + sanitizeEmail(email));
         const snapshot = await userRef.once('value');
         const user = snapshot.val();
 
@@ -78,9 +83,26 @@ async function checkUserInFirebase(email, msalAccount) {
             }
         }
     } catch (error) {
-        console.error("Firebase Error:", error);
-        document.getElementById('connectionStatus').innerHTML = `<span style="color:red; font-weight:bold;">Error: ${error.message}</span>`;
-        alert("Database Error: " + error.message);
+        console.error("Critical Error in checkUserInFirebase:", error);
+
+        // Show error on screen
+        const statusEl = document.getElementById('connectionStatus');
+        statusEl.innerHTML = `<div style="color:red; background:white; padding:10px; border:1px solid red; border-radius:4px; text-align:left; font-size:0.8rem;">
+            <strong>Error:</strong> ${error.message}<br>
+            <br>
+            <strong>Code:</strong> ${error.code || 'N/A'}
+        </div>`;
+
+        // Specific handling
+        if (error.message.includes("Timeout")) {
+            alert("Database Connection Failed!\n\nPlease check your internet or Firebase Console.");
+        } else if (error.code === 'PERMISSION_DENIED') {
+            alert("Setup Error: Database rules block access.\n\nGo to Firebase Console > Realtime Database > Rules.\nChange read/write to 'true' (Test Mode).");
+        } else if (error.message.includes("db is missing")) {
+            alert("Tech Error: Firebase failed to load.\n\nYour network might be blocking 'gstatic.com'.");
+        } else {
+            alert("System Error: " + error.message);
+        }
     }
 }
 
