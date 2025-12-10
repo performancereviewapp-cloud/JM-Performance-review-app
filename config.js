@@ -9,7 +9,7 @@
 
 const msalConfig = {
     auth: {
-        clientId: "e1376ee3-1f16-466b-94cc-4b92be5d5f06", // <--- REPLACE THIS WITH YOUR CLIENT ID
+        clientId: "89d8367d-5737-44ca-8157-7b487a3dd3b4", // <--- REPLACE THIS WITH YOUR CLIENT ID
         authority: "https://login.microsoftonline.com/common",
         // Auto-detects the current page as the redirect URI. 
         // IMPORTANT: You must register EXACTLY this URL in Azure Portal.
