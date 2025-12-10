@@ -17,8 +17,7 @@ async function onO365Ready(accessToken, msalAccount) {
         // IMMEDIATE CHECK: Did Firebase load?
         if (!window.db) {
             logToScreen("onO365Ready: CRITICAL - No DB");
-            alert("CRITICAL ERROR: Firebase Database not loaded.");
-            document.getElementById('connectionStatus').innerHTML = '<span style="color:red">Firebase SDK Missing</span>';
+            document.getElementById('connectionStatus').textContent = "Checking Database...";
             return;
         }
 
@@ -47,7 +46,7 @@ async function checkUserInFirebase(email, msalAccount) {
 
         // Sanitize
         logToScreen("checkUserInFirebase: Sanitizing email...");
-        let cleanEmail = email.replace(/[.#$[\]]/g, '_'); // Inline for safety
+        let cleanEmail = sanitizeEmail(email);
         logToScreen("checkUserInFirebase: Sanitized email: " + cleanEmail);
 
         const path = 'employees/' + cleanEmail;
@@ -77,6 +76,14 @@ async function checkUserInFirebase(email, msalAccount) {
 
         if (user) {
             logToScreen("checkUserInFirebase: User exists in DB");
+
+            if (user.isDisabled) {
+                showToast("Your account has been disabled. Please contact HR.", "error");
+                await new Promise(r => setTimeout(r, 3000)); // Wait for toast
+                signOut();
+                return;
+            }
+
             currentUser = user;
             // Update name if changed
             if (user.name !== msalAccount.name && msalAccount.name) {
@@ -104,7 +111,7 @@ async function checkUserInFirebase(email, msalAccount) {
                 enterApp();
             } else {
                 logToScreen("checkUserInFirebase: Access Denied");
-                alert("Access Denied. Your account is not registered. Please ask HR to add you.");
+                showToast("Access Denied. Your account is not registered. Please ask HR to add you.", "error");
                 signOut();
             }
         }
@@ -114,8 +121,32 @@ async function checkUserInFirebase(email, msalAccount) {
     }
 }
 
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+
+    let icon = '';
+    if (type === 'success') icon = '✓';
+    if (type === 'error') icon = '✕';
+    if (type === 'warning') icon = '⚠';
+
+    toast.innerHTML = `
+        <div style="font-weight:bold; font-size:1.2rem; color:inherit">${icon}</div>
+        <div class="toast-message">${message}</div>
+    `;
+
+    container.appendChild(toast);
+
+    // Auto remove
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.3s forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
 function sanitizeEmail(email) {
-    return email.replace(/\./g, ','); // Firebase keys can't have '.'
+    return email.replace(/[.#$[\]]/g, '_');
 }
 
 async function enterApp() {
@@ -295,73 +326,187 @@ function showHRView() {
 
 function renderEmployeeList() {
     const list = document.getElementById('employeeList');
-    list.innerHTML = dbData.employees.map(e => `
-        <div class="list-item">
-            <div>
-                <strong>${e.name}</strong> (${e.role.toUpperCase()})<br>
-                <small>${e.email}</small>
-            </div>
-            <div>
-                ${e.department}<br>
-                <span style="font-size:0.8rem; color:gray;">Mgr: ${e.managerEmail || 'None'}</span>
-            </div>
-        </div>
-    `).join('');
+
+    // Sort: HR first, then Manager, then ABC
+    const sorted = [...dbData.employees].sort((a, b) => {
+        if (a.role === 'hr' && b.role !== 'hr') return -1;
+        if (a.role !== 'hr' && b.role === 'hr') return 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    if (sorted.length === 0) {
+        list.innerHTML = '<p style="padding:20px; text-align:center; color:gray">No employees found.</p>';
+        return;
+    }
+
+    let html = `
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name / Role</th>
+                        <th>Department</th>
+                        <th>Manager</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    html += sorted.map(e => {
+        const isActive = !e.isDisabled;
+        const statusBadge = isActive
+            ? '<span class="badge badge-active">Active</span>'
+            : '<span class="badge badge-disabled">Disabled</span>';
+
+        const rowStyle = isActive ? '' : 'opacity: 0.7; background: #fafafa;';
+
+        return `
+            <tr style="${rowStyle}">
+                <td>
+                    <div style="font-weight:500; color:#1e293b">${e.name}</div>
+                    <div style="font-size:0.8rem; color:#64748b">${e.email}</div>
+                    <div style="font-size:0.75rem; font-weight:bold; color:#3b82f6; margin-top:2px;">${e.role.toUpperCase()}</div>
+                </td>
+                <td>
+                    ${e.department}<br>
+                    <small style="color:#64748b">${e.position}</small>
+                </td>
+                <td style="font-size:0.9rem">${e.managerEmail || '<span style="color:#cbd5e1">None</span>'}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <button onclick="openEmployeeModal('${e.id}')" class="action-btn edit" title="Edit Details">Edit</button>
+                    
+                    ${e.role !== 'hr' || e.email !== currentUser.email ? `
+                        <button onclick="toggleEmployeeStatus('${e.id}')" class="action-btn disable" title="${isActive ? 'Disable Access' : 'Enable Access'}">
+                            ${isActive ? 'Disable' : 'Enable'}
+                        </button>
+                        <button onclick="deleteEmployee('${e.id}')" class="action-btn delete" title="Delete User">Delete</button>
+                    ` : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    html += `</tbody></table></div>`;
+    list.innerHTML = html;
 }
 
 // --- Features ---
 
-function showAddEmployeeForm() {
-    // We reuse logic but simpler: prompt or custom modal? 
-    // Let's use CSS modal we already have but adapt it? 
-    // Or just make a simple one. The user wanted "Professional".
-    // I'll assume the previous 'addEmployeeFormSection' logic in HTML is available or recover it.
-    // For now, let's inject a modal dynamically to be safe.
-    const modalHtml = `
-        <div id="addEmpModal" class="popup-overlay">
-            <div class="popup-content">
-                <h3>Add New Employee</h3>
-                <form id="newEmpForm">
-                    <div class="form-group"><label>Name</label><input id="newEmpName" required></div>
-                    <div class="form-group"><label>Email</label><input id="newEmpEmail" type="email" required></div>
-                    <div class="form-group"><label>Manager Email</label><input id="newEmpMgr" type="email"></div>
-                    <div class="form-group"><label>Department</label><input id="newEmpDept" required></div>
-                    <div class="form-group"><label>Position</label><input id="newEmpPos" required></div>
-                    <div class="form-group"><label>Role</label>
-                        <select id="newEmpRole">
-                            <option value="employee">Employee</option>
-                            <option value="manager">Manager</option>
-                            <option value="hr">HR</option>
-                        </select>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Save User</button>
-                        <button type="button" onclick="document.getElementById('addEmpModal').remove()" class="btn btn-secondary">Cancel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
+// --- Employee Management Features ---
 
-    document.getElementById('newEmpForm').onsubmit = async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('newEmpEmail').value.toLowerCase();
-        const newUser = {
-            id: 'EMP-' + Date.now(),
-            name: document.getElementById('newEmpName').value,
-            email: email,
-            managerEmail: document.getElementById('newEmpMgr').value.toLowerCase(),
-            department: document.getElementById('newEmpDept').value,
-            position: document.getElementById('newEmpPos').value,
-            role: document.getElementById('newEmpRole').value
+function openEmployeeModal(empId = null) {
+    const modal = document.getElementById('employeeModal');
+    const form = document.getElementById('employeeForm');
+    form.reset();
+
+    document.getElementById('userId').value = empId || '';
+
+    if (empId) {
+        const emp = dbData.employees.find(e => e.id === empId);
+        if (emp) {
+            document.getElementById('employeeModalTitle').textContent = "Edit Employee";
+            document.getElementById('empName').value = emp.name;
+            document.getElementById('empEmail').value = emp.email;
+            document.getElementById('empEmail').disabled = true; // Email is key-ish
+            document.getElementById('empManager').value = emp.managerEmail || '';
+            document.getElementById('empDept').value = emp.department;
+            document.getElementById('empPos').value = emp.position;
+            document.getElementById('empRole').value = emp.role;
+        }
+    } else {
+        document.getElementById('employeeModalTitle').textContent = "Add New Employee";
+        document.getElementById('empEmail').disabled = false;
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeEmployeeModal() {
+    document.getElementById('employeeModal').style.display = 'none';
+}
+
+// Bind Employee Form
+document.addEventListener('DOMContentLoaded', () => {
+    const empForm = document.getElementById('employeeForm');
+    if (empForm) {
+        empForm.onsubmit = async (e) => {
+            e.preventDefault();
+
+            const empId = document.getElementById('userId').value;
+            const email = document.getElementById('empEmail').value.toLowerCase();
+            const cleanEmail = sanitizeEmail(email);
+
+            const userData = {
+                name: document.getElementById('empName').value,
+                email: email,
+                managerEmail: document.getElementById('empManager').value.toLowerCase(),
+                department: document.getElementById('empDept').value,
+                position: document.getElementById('empPos').value,
+                role: document.getElementById('empRole').value
+            };
+
+            if (!empId) {
+                // New User
+                userData.id = 'EMP-' + Date.now();
+                userData.isDisabled = false;
+            } else {
+                // Existing, preserve some fields if needed
+                const existing = dbData.employees.find(e => e.id === empId);
+                userData.id = empId;
+                if (existing) {
+                    userData.isDisabled = existing.isDisabled || false;
+                }
+            }
+
+            try {
+                await db.ref('employees/' + cleanEmail).update(userData);
+                showToast(empId ? "Employee Updated" : "Employee Added", "success");
+                closeEmployeeModal();
+            } catch (err) {
+                showToast("Error saving: " + err.message, "error");
+            }
         };
+    }
+});
 
-        // Save to Firebase
-        await db.ref('employees/' + sanitizeEmail(email)).set(newUser);
-        document.getElementById('addEmpModal').remove();
-        alert("User added! They can now log in.");
-    };
+function showAddEmployeeForm() {
+    openEmployeeModal();
+}
+
+async function toggleEmployeeStatus(empId) {
+    const emp = dbData.employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    const newStatus = !emp.isDisabled; // toggle
+    const list = dbData.employees; // local copy ref
+
+    // Optimistic UI update or just wait for Firebase?
+    // Let's just write to Firebase
+    try {
+        await db.ref('employees/' + sanitizeEmail(emp.email)).update({ isDisabled: newStatus });
+        showToast(`User ${newStatus ? 'Disabled' : 'Activated'}`, "success");
+    } catch (e) {
+        showToast("Error: " + e.message, "error");
+    }
+}
+
+async function deleteEmployee(empId) {
+    const emp = dbData.employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    if (!confirm(`Are you sure you want to PERMANENTLY DELETE ${emp.name}? This action cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        await db.ref('employees/' + sanitizeEmail(emp.email)).remove();
+        showToast("Employee Deleted", "warning");
+    } catch (e) {
+        showToast("Error deleting: " + e.message, "error");
+    }
 }
 
 
@@ -456,7 +601,7 @@ function bindEvents() {
             // Save
             await db.ref('reviews/' + reviewData.id).set(reviewData);
             closeReviewModal();
-            alert("Review Saved!");
+            showToast("Review Saved Successfully!", "success");
         };
     }
 }

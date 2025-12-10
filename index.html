@@ -65,7 +65,9 @@
         <div class="login-box">
             <h1>JM Group Inc</h1>
             <p style="color:#64748b">Performance Review System</p>
-            <p style="color:#ea580c; font-size: 0.9rem; margin-top:5px; font-weight:bold;">Version 2.4</p>
+            <p style="color:#ea580c; font-size: 0.9rem; margin-top:5px; font-weight:bold;">Version 3.0 (Professional
+                Dashboard)
+            </p>
             <div id="connectionStatus" style="margin: 20px 0; font-size: 0.9rem;">Ready to Sign In</div>
 
             <button id="signInBtn" class="btn-microsoft"
@@ -143,6 +145,9 @@
         </div>
     </div>
 
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
     <!-- Review Modal -->
     <div id="reviewModal" class="popup-overlay" style="display: none;">
         <div class="popup-content" style="max-width: 800px;">
@@ -208,9 +213,41 @@
         </div>
     </div>
 
+    <!-- Employee Management Modal -->
+    <div id="employeeModal" class="popup-overlay" style="display: none;">
+        <div class="popup-content">
+            <h3 id="employeeModalTitle">Manage Employee</h3>
+            <form id="employeeForm">
+                <input type="hidden" id="userId">
+
+                <div class="form-group"><label>Full Name</label><input id="empName" required></div>
+                <div class="form-group"><label>Email Address</label><input id="empEmail" type="email" required></div>
+                <div class="form-group"><label>Manager Email</label><input id="empManager" type="email"></div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div class="form-group"><label>Department</label><input id="empDept" required></div>
+                    <div class="form-group"><label>Position</label><input id="empPos" required></div>
+                </div>
+
+                <div class="form-group"><label>System Role</label>
+                    <select id="empRole">
+                        <option value="employee">Employee</option>
+                        <option value="manager">Manager</option>
+                        <option value="hr">HR Administrator</option>
+                    </select>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" onclick="closeEmployeeModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Scripts -->
-    <script src="auth.js?v=fixed_sign_in_v11"></script>
-    <script src="app-v2.js?v=fixed_sign_in_v11"></script>
+    <script src="auth.js?v=3.0_pro"></script>
+    <script src="app-v2.js?v=3.0_pro"></script>
 </body>
 
 </html>
