@@ -873,69 +873,94 @@ async function exportCurrentReviewPDF() {
     const review = dbData.reviews.find(r => r.id === currentReviewId);
     if (!review) return;
 
+    // Lookup Manager Name
+    let managerName = review.managerEmail || 'N/A';
+    if (review.managerEmail && dbData && dbData.employees) {
+        const mgr = dbData.employees.find(e => e.email.toLowerCase() === review.managerEmail.toLowerCase());
+        if (mgr) managerName = mgr.name;
+    }
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
     // Load Logo
     const logoBase64 = await getBase64FromUrl('assets/logo_sm.png');
 
-    // Header Background
-    doc.setFillColor(248, 250, 252); // Light Gray/Slate
-    doc.rect(0, 0, 210, 40, 'F');
+    // --- HEADER ---
+    // Background
+    doc.setFillColor(248, 250, 252); // Light Slate
+    doc.rect(0, 0, 210, 55, 'F');
 
-    // Logo
+    // Logo (Centered)
     if (logoBase64) {
-        doc.addImage(logoBase64, 'PNG', 15, 10, 10, 10); // Small Logo
+        const logoSize = 15;
+        const centerX = (210 - logoSize) / 2;
+        doc.addImage(logoBase64, 'PNG', centerX, 5, logoSize, logoSize);
     }
 
-    // Title
+    // Company Name (Centered)
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.setTextColor(30, 58, 138); // Dark Blue
-    doc.text("JM Group Inc Performance Report", 35, 18);
+    doc.setFontSize(20);
+    doc.setTextColor(30, 58, 138); // Navy Blue
+    doc.text("JM Group Inc", 105, 30, null, null, "center");
 
+    // Title (Below Company Name)
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(51, 65, 85); // Slate 700
+    doc.text("Performance Report", 105, 40, null, null, "center");
+
+    // Confidential Subtitle
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text("Confidential Review Document", 35, 25);
+    doc.setTextColor(148, 163, 184); // Slate 400
+    doc.text("Confidential Review Document", 105, 48, null, null, "center");
 
-    doc.line(0, 40, 210, 40); // Separator Line
+    doc.setDrawColor(203, 213, 225);
+    doc.line(0, 55, 210, 55);
 
-    // Content Start
-    let y = 60;
+    // --- META INFO ---
+    let y = 75;
 
     // Review Meta Box
-    doc.setDrawColor(203, 213, 225);
+    doc.setDrawColor(226, 232, 240);
     doc.setFillColor(255, 255, 255);
-    doc.roundedRect(15, 50, 180, 35, 3, 3, 'S');
+    doc.roundedRect(15, 65, 180, 40, 3, 3, 'S'); // Border only
 
-    doc.setFontSize(14);
-    doc.setTextColor(30);
-    doc.text(`Period: ${review.period}`, 25, 65);
-
-    doc.setFontSize(11);
-    doc.text(`Employee: ${review.employeeName}`, 25, 75);
-    doc.text(`Manager: ${review.managerEmail || 'N/A'}`, 110, 75);
-
-    // Ratings
+    // Period
     doc.setFont("helvetica", "bold");
-    doc.text(`Self Rating: ${review.selfRating}/5`, 25, 105);
-    if (review.managerRating) doc.text(`Manager Rating: ${review.managerRating}/5`, 110, 105);
+    doc.setFontSize(14);
+    doc.setTextColor(15, 23, 42); // Slate 900
+    doc.text(`Period: ${review.period}`, 25, 80);
 
-    y = 130;
+    // Employee & Manager Row
+    doc.setFontSize(11);
+    doc.text(`Employee: ${review.employeeName}`, 25, 95);
+    doc.text(`Manager: ${managerName}`, 110, 95);
 
-    // Helper for Text Blocks
+    // Ratings (Visual Emphasis)
+    doc.setFontSize(12);
+    doc.setTextColor(30, 58, 138); // Navy
+    doc.text(`Self Rating: ${review.selfRating}/5`, 25, 125);
+    if (review.managerRating) doc.text(`Manager Rating: ${review.managerRating}/5`, 110, 125);
+
+    y = 150;
+
+    // --- CONTENT SECTIONS ---
     const addSection = (title, content) => {
         if (y > 270) { doc.addPage(); y = 20; }
 
+        // Section Header
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
-        doc.setTextColor(30, 60, 114);
+        doc.setTextColor(30, 60, 114); // Company Blue
         doc.text(title, 20, y);
         y += 8;
 
-        doc.setFont("helvetica", "normal");
+        // Content
+        doc.setFont("times", "normal"); // Professional Serif for content
         doc.setFontSize(11);
-        doc.setTextColor(0);
+        doc.setTextColor(30); // Dark Gray
 
         const lines = doc.splitTextToSize(content || "N/A", 170);
         doc.text(lines, 20, y);
