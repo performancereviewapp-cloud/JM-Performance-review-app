@@ -680,10 +680,12 @@ function openReviewModal(type, reviewId = null) {
     if (review) {
         document.getElementById('reviewPeriod').value = review.period;
         document.getElementById('selfAchievements').value = review.selfAchievements;
-        document.getElementById('selfImprovements').value = review.selfImprovements;
+        // Fallback for legacy 'selfImprovements' to 'selfComments'
+        document.getElementById('selfComments').value = review.selfComments || review.selfImprovements || '';
         document.getElementById('selfRating').value = review.selfRating;
 
         if (review.managerComments) document.getElementById('managerComments').value = review.managerComments;
+        if (review.managerImprovements) document.getElementById('managerImprovements').value = review.managerImprovements;
         if (review.managerRating) document.getElementById('managerRating').value = review.managerRating;
 
         // Show export if completed
@@ -821,11 +823,12 @@ function bindEvents() {
 
             reviewData.period = document.getElementById('reviewPeriod').value;
             reviewData.selfAchievements = document.getElementById('selfAchievements').value;
-            reviewData.selfImprovements = document.getElementById('selfImprovements').value;
+            reviewData.selfComments = document.getElementById('selfComments').value;
             reviewData.selfRating = document.getElementById('selfRating').value;
 
             if (type === 'manager') {
                 reviewData.managerComments = document.getElementById('managerComments').value;
+                reviewData.managerImprovements = document.getElementById('managerImprovements').value;
                 reviewData.managerRating = document.getElementById('managerRating').value;
                 reviewData.status = 'completed';
             }
@@ -875,9 +878,23 @@ async function exportCurrentReviewPDF() {
     doc.text("Achievements:", 20, 100);
     doc.text(doc.splitTextToSize(review.selfAchievements, 170), 20, 107);
 
+    // Adjust Y position based on previous text block size, but for now simple fixed spacing or simple addition
+    // Let's approximate. Ideally we track Y.
+    let y = 140;
+
+    doc.text("Employee Comments:", 20, y);
+    doc.text(doc.splitTextToSize(review.selfComments || review.selfImprovements || 'N/A', 170), 20, y + 7);
+    y += 40;
+
+    if (review.managerImprovements) {
+        doc.text("Areas for Improvement:", 20, y);
+        doc.text(doc.splitTextToSize(review.managerImprovements, 170), 20, y + 7);
+        y += 40;
+    }
+
     if (review.managerComments) {
-        doc.text("Manager Comments:", 20, 160);
-        doc.text(doc.splitTextToSize(review.managerComments, 170), 20, 167);
+        doc.text("Manager Comments:", 20, y);
+        doc.text(doc.splitTextToSize(review.managerComments, 170), 20, y + 7);
     }
 
     doc.save("Review.pdf");
