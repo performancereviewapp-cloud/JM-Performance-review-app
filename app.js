@@ -10,6 +10,13 @@ async function onO365Ready(accessToken, msalAccount) {
     console.log("O365 Login Success. Checking Firebase...");
     document.getElementById('connectionStatus').textContent = "Checking Database...";
 
+    // IMMEDIATE CHECK: Did Firebase load?
+    if (!window.db) {
+        alert("CRITICAL ERROR: Firebase Database not loaded.\n\nPossible reasons:\n1. Ad blocker blocking 'runtime database'\n2. Slow network\n3. Bad Config\n\nCheck console for details.");
+        document.getElementById('connectionStatus').innerHTML = '<span style="color:red">Firebase SDK Missing</span>';
+        return;
+    }
+
     // Use email as key
     const email = msalAccount.username.toLowerCase();
 
