@@ -47,6 +47,17 @@ async function initAuth() {
     }
 }
 
+
+function signIn() {
+    logToScreen("auth.js: signIn clicked");
+    myMSALObj.loginPopup(loginRequest)
+        .then(handleResponse)
+        .catch(error => {
+            logToScreen("auth.js: Login Popup Error: " + error.message);
+            console.error(error);
+        });
+}
+
 function handleResponse(response) {
     if (response !== null) {
         logToScreen("auth.js: Login Success for " + response.account.username);
