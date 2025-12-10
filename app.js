@@ -27,52 +27,42 @@ async function onO365Ready(accessToken, msalAccount) {
 // 2. Firebase Data Logic
 // 2. Firebase Data Logic
 async function checkUserInFirebase(email, msalAccount) {
+    alert("DEBUG: 1. Function Started");
+
     try {
-        console.log("Checking path: employees/" + sanitizeEmail(email));
+        if (!window.db) throw new Error("No DB");
+        alert("DEBUG: 2. DB Exists");
 
-        // 1. Sanity Check
-        if (!window.db) {
-            throw new Error("Firebase SDK not initialized. (db is missing)");
-        }
+        const path = 'employees/' + sanitizeEmail(email);
+        alert("DEBUG: 3. Path is " + path);
 
-        // 2. Test Connection first with timeout
+        const userRef = db.ref(path);
+        alert("DEBUG: 4. Ref Created. Reading now...");
+
+        // DIRECT READ
+        let snapshot;
         try {
-            const connectedRef = db.ref(".info/connected");
-            // Race: Connection vs 5s Timeout
-            await new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => reject(new Error("Connection Timeout")), 5000);
-                connectedRef.once('value', snap => {
-                    clearTimeout(timeout);
-                    if (snap.val() === true) resolve();
-                });
-            });
-        } catch (e) {
-            console.error("Connection Check Failed:", e);
-            if (e.message === "Connection Timeout") {
-                throw new Error("Connection Timeout: Database did not respond in 5s.");
-            }
-            // If it's another error (e.g. permission), we let it slide to the main logic which might catch it better, 
-            // OR we throw it here. Let's throw it to be safe.
-            throw e;
+            snapshot = await userRef.once('value');
+        } catch (readErr) {
+            alert("DEBUG: Read Failed: " + readErr.message);
+            throw readErr;
         }
 
-        // 3. Main Data Fetch
-        const userRef = db.ref('employees/' + sanitizeEmail(email));
-        const snapshot = await userRef.once('value');
+        alert("DEBUG: 5. Read Complete!");
         const user = snapshot.val();
 
         if (user) {
-            console.log("User found:", user);
+            alert("DEBUG: 6. User Found");
             currentUser = user;
             if (user.name !== msalAccount.name && msalAccount.name) {
                 userRef.update({ name: msalAccount.name });
             }
             enterApp();
         } else {
+            alert("DEBUG: 6. User Not Found - Creating Admin");
             // First user logic
             const allUsersSnap = await db.ref('employees').once('value');
             if (!allUsersSnap.exists()) {
-                console.log("Creating First Admin");
                 const newAdmin = {
                     id: 'ADM-' + Date.now(),
                     name: msalAccount.name || 'Admin',
@@ -91,26 +81,8 @@ async function checkUserInFirebase(email, msalAccount) {
             }
         }
     } catch (error) {
-        console.error("Critical Error in checkUserInFirebase:", error);
-
-        // Show error on screen
-        const statusEl = document.getElementById('connectionStatus');
-        statusEl.innerHTML = `<div style="color:red; background:white; padding:10px; border:1px solid red; border-radius:4px; text-align:left; font-size:0.8rem;">
-            <strong>Error:</strong> ${error.message}<br>
-            <br>
-            <strong>Code:</strong> ${error.code || 'N/A'}
-        </div>`;
-
-        // Specific handling
-        if (error.message.includes("Timeout")) {
-            alert("Database Connection Failed!\n\nPlease check your internet or Firebase Console.");
-        } else if (error.code === 'PERMISSION_DENIED') {
-            alert("Setup Error: Database rules block access.\n\nGo to Firebase Console > Realtime Database > Rules.\nChange read/write to 'true' (Test Mode).");
-        } else if (error.message.includes("db is missing")) {
-            alert("Tech Error: Firebase failed to load.\n\nYour network might be blocking 'gstatic.com'.");
-        } else {
-            alert("System Error: " + error.message);
-        }
+        alert("CRASH caught: " + error.message);
+        document.getElementById('connectionStatus').innerHTML = 'Error: ' + error.message;
     }
 }
 
