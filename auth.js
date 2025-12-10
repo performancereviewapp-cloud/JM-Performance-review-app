@@ -103,6 +103,17 @@ async function acquireToken() {
     }
 }
 
+function signOut() {
+    logToScreen("auth.js: signOut clicked");
+    const logoutRequest = {
+        account: myMSALObj.getAccountByUsername(username),
+        postLogoutRedirectUri: msalConfig.auth.redirectUri,
+        mainWindowRedirectUri: msalConfig.auth.redirectUri
+    };
+
+    myMSALObj.logoutPopup(logoutRequest);
+}
+
 // UI Helpers
 function showWelcomeMessage(account) {
     // Hide Login Screen handled by app.js mostly, but here we trigger state
