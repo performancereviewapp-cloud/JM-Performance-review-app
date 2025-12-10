@@ -71,35 +71,47 @@ async function checkUserInFirebase(email, msalAccount) {
         } catch (readErr) {
             throw new Error("Read Failed: " + readErr.message);
         }
-        userRef.update({ name: msalAccount.name });
+
+        logToScreen("checkUserInFirebase: Read complete. Value: " + (snapshot && snapshot.val() ? "Found" : "Null"));
+        const user = snapshot.val();
+
+        if (user) {
+            logToScreen("checkUserInFirebase: User exists in DB");
+            currentUser = user;
+            // Update name if changed
+            if (user.name !== msalAccount.name && msalAccount.name) {
+                userRef.update({ name: msalAccount.name });
+            }
+            enterApp();
+        } else {
+            logToScreen("checkUserInFirebase: User NOT found. Checking for Admin Init...");
+
+            // First user logic
+            const allUsersSnap = await db.ref('employees').once('value');
+            if (!allUsersSnap.exists()) {
+                logToScreen("checkUserInFirebase: First user ever! Creating Admin...");
+                const newAdmin = {
+                    id: 'ADM-' + Date.now(),
+                    name: msalAccount.name || 'Admin',
+                    email: email,
+                    role: 'hr',
+                    department: 'Total Admin',
+                    position: 'System Administrator',
+                    managerEmail: ''
+                };
+                await userRef.set(newAdmin);
+                currentUser = newAdmin;
+                enterApp();
+            } else {
+                logToScreen("checkUserInFirebase: Access Denied");
+                alert("Access Denied. Your account is not registered. Please ask HR to add you.");
+                signOut();
+            }
+        }
+    } catch (error) {
+        logToScreen("CRASH caught: " + error.message);
+        document.getElementById('connectionStatus').innerHTML = 'Error: ' + error.message;
     }
-        enterApp();
-} else {
-    alert("DEBUG: 6. User Not Found - Creating Admin");
-    // First user logic
-    const allUsersSnap = await db.ref('employees').once('value');
-    if (!allUsersSnap.exists()) {
-        const newAdmin = {
-            id: 'ADM-' + Date.now(),
-            name: msalAccount.name || 'Admin',
-            email: email,
-            role: 'hr',
-            department: 'Total Admin',
-            position: 'System Administrator',
-            managerEmail: ''
-        };
-        await userRef.set(newAdmin);
-        currentUser = newAdmin;
-        enterApp();
-    } else {
-        alert("Access Denied. Your account is not registered. Please ask HR to add you.");
-        signOut();
-    }
-}
-} catch (error) {
-    alert("CRASH caught: " + error.message);
-    document.getElementById('connectionStatus').innerHTML = 'Error: ' + error.message;
-}
 }
 
 function sanitizeEmail(email) {
