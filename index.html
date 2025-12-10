@@ -54,20 +54,10 @@
 
 <body>
     <!-- On-Screen Debugger -->
-    <div id="debugLog"
-        style="position:fixed; top:0; left:0; width:100%; height:150px; background:rgba(0,0,0,0.9); color:#0f0; font-family:monospace; font-size:12px; overflow-y:scroll; z-index:9999; padding:10px; pointer-events:none;">
-        Starting System...<br>
-    </div>
+
     <script>
-        function logToScreen(msg) {
-            const d = document.getElementById('debugLog');
-            if (d) {
-                d.innerHTML += new Date().toISOString().split('T')[1].slice(0, -1) + ": " + msg + "<br>";
-                d.scrollTop = d.scrollHeight;
-            }
-        }
-        window.onerror = function (msg, url, line) { logToScreen("ERROR: " + msg + " (" + url + ":" + line + ")"); };
-        logToScreen("HTML Loaded. Waiting for scripts...");
+        // No-op for production
+        function logToScreen(msg) { console.log(msg); }
     </script>
 
     <!-- Login Screen -->
@@ -75,7 +65,7 @@
         <div class="login-box">
             <h1>JM Group Inc</h1>
             <p style="color:#64748b">Performance Review System</p>
-            <p style="color:#ea580c; font-size: 0.9rem; margin-top:5px; font-weight:bold;">Version 2.2 (Debug Mode)</p>
+            <p style="color:#ea580c; font-size: 0.9rem; margin-top:5px; font-weight:bold;">Version 2.3</p>
             <div id="connectionStatus" style="margin: 20px 0; font-size: 0.9rem;">Ready to Sign In</div>
 
             <button id="signInBtn" class="btn-microsoft" onclick="signIn()">
