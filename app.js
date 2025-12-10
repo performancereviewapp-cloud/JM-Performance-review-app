@@ -19,30 +19,31 @@ async function onO365Ready(accessToken, msalAccount) {
 
 // 2. Firebase Data Logic
 async function checkUserInFirebase(email, msalAccount) {
+    console.log("Checking path: employees/" + sanitizeEmail(email));
     const userRef = db.ref('employees/' + sanitizeEmail(email));
 
-    userRef.once('value', async (snapshot) => {
+    try {
+        // Changed to await for better error handling
+        const snapshot = await userRef.once('value');
         const user = snapshot.val();
 
         if (user) {
             console.log("User found:", user);
             currentUser = user;
-            // Sync latest name if changed
             if (user.name !== msalAccount.name && msalAccount.name) {
                 userRef.update({ name: msalAccount.name });
             }
             enterApp();
         } else {
-            // New User Logic
-            // First user ever? -> Make Admin
+            // First user logic
             const allUsersSnap = await db.ref('employees').once('value');
             if (!allUsersSnap.exists()) {
-                console.log("No users in DB. Creating First Admin.");
+                console.log("Creating First Admin");
                 const newAdmin = {
                     id: 'ADM-' + Date.now(),
                     name: msalAccount.name || 'Admin',
                     email: email,
-                    role: 'hr', // FORCE HR
+                    role: 'hr',
                     department: 'Total Admin',
                     position: 'System Administrator',
                     managerEmail: ''
@@ -51,15 +52,22 @@ async function checkUserInFirebase(email, msalAccount) {
                 currentUser = newAdmin;
                 enterApp();
             } else {
-                // Not first user -> "Access Denied" or "Guest"
-                // Per requirement: "Added by HR". So if not found, they are strictly blocked or shown a "Pending" screen.
-                // However, user said "fix that user b becomes hr". 
-                // So if not found, we show error.
                 alert("Access Denied. Your account is not registered. Please ask HR to add you.");
                 signOut();
             }
         }
-    });
+    } catch (error) {
+        console.error("Firebase Error:", error);
+        document.getElementById('connectionStatus').innerHTML = `<span style="color:red; font-weight:bold;">Error: ${error.message}</span>`;
+
+        if (error.code === 'PERMISSION_DENIED') {
+            alert("Setup Error: Database rules block access.\n\nGo to Firebase Console > Realtime Database > Rules.\nChange read/write to 'true' (Test Mode).");
+        } else if (error.code === 'FIREBASE_APP_DELETED') {
+            alert("Setup Error: Database not found.\n\nDid you enable 'Realtime Database' in the console?");
+        } else {
+            alert("Error connecting to database: " + error.message);
+        }
+    }
 }
 
 function sanitizeEmail(email) {
