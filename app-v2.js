@@ -1,4 +1,5 @@
 // Main App Logic - Firebase + MSAL Edition
+logToScreen("app-v2.js: Script Starting...");
 
 let currentUser = null;
 let dbData = { employees: [], reviews: [] };
