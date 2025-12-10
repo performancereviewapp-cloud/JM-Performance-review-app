@@ -846,7 +846,28 @@ document.addEventListener('DOMContentLoaded', () => {
     bindEvents();
 });
 
-// PDF Export (Same as before)
+// Helper to load image
+function getBase64FromUrl(url) {
+    return new Promise((resolve) => {
+        var img = new Image();
+        img.setAttribute('crossOrigin', 'anonymous');
+        img.onload = function () {
+            var canvas = document.createElement("canvas");
+            canvas.width = this.width;
+            canvas.height = this.height;
+            var ctx = canvas.getContext("2d");
+            ctx.drawImage(this, 0, 0);
+            var dataURL = canvas.toDataURL("image/png");
+            resolve(dataURL);
+        };
+        img.onerror = function () {
+            resolve(null);
+        };
+        img.src = url;
+    });
+}
+
+// PDF Export
 async function exportCurrentReviewPDF() {
     if (!currentReviewId) return;
     const review = dbData.reviews.find(r => r.id === currentReviewId);
@@ -855,47 +876,84 @@ async function exportCurrentReviewPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    doc.setFontSize(22);
-    doc.setTextColor(30, 60, 114);
-    doc.text("Performance Review", 105, 20, null, null, "center");
+    // Load Logo
+    const logoBase64 = await getBase64FromUrl('assets/logo_sm.png');
 
-    doc.setFontSize(12);
+    // Header Background
+    doc.setFillColor(248, 250, 252); // Light Gray/Slate
+    doc.rect(0, 0, 210, 40, 'F');
+
+    // Logo
+    if (logoBase64) {
+        doc.addImage(logoBase64, 'PNG', 15, 10, 10, 10); // Small Logo
+    }
+
+    // Title
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(30, 58, 138); // Dark Blue
+    doc.text("JM Group Inc Performance Report", 35, 18);
+
+    doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Period: ${review.period}`, 105, 30, null, null, "center");
+    doc.text("Confidential Review Document", 35, 25);
 
-    doc.line(20, 35, 190, 35);
+    doc.line(0, 40, 210, 40); // Separator Line
+
+    // Content Start
+    let y = 60;
+
+    // Review Meta Box
+    doc.setDrawColor(203, 213, 225);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(15, 50, 180, 35, 3, 3, 'S');
 
     doc.setFontSize(14);
-    doc.setTextColor(0);
-    doc.text("Details", 20, 45);
+    doc.setTextColor(30);
+    doc.text(`Period: ${review.period}`, 25, 65);
+
     doc.setFontSize(11);
-    doc.text(`Employee: ${review.employeeName}`, 20, 55);
-    doc.text(`Manager: ${review.managerEmail || 'N/A'}`, 20, 62);
+    doc.text(`Employee: ${review.employeeName}`, 25, 75);
+    doc.text(`Manager: ${review.managerEmail || 'N/A'}`, 110, 75);
 
-    doc.text(`Self Rating: ${review.selfRating}/5`, 20, 80);
-    if (review.managerRating) doc.text(`Manager Rating: ${review.managerRating}/5`, 100, 80);
+    // Ratings
+    doc.setFont("helvetica", "bold");
+    doc.text(`Self Rating: ${review.selfRating}/5`, 25, 105);
+    if (review.managerRating) doc.text(`Manager Rating: ${review.managerRating}/5`, 110, 105);
 
-    doc.text("Achievements:", 20, 100);
-    doc.text(doc.splitTextToSize(review.selfAchievements, 170), 20, 107);
+    y = 130;
 
-    // Adjust Y position based on previous text block size, but for now simple fixed spacing or simple addition
-    // Let's approximate. Ideally we track Y.
-    let y = 140;
+    // Helper for Text Blocks
+    const addSection = (title, content) => {
+        if (y > 270) { doc.addPage(); y = 20; }
 
-    doc.text("Employee Comments:", 20, y);
-    doc.text(doc.splitTextToSize(review.selfComments || review.selfImprovements || 'N/A', 170), 20, y + 7);
-    y += 40;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.setTextColor(30, 60, 114);
+        doc.text(title, 20, y);
+        y += 8;
 
-    if (review.managerImprovements) {
-        doc.text("Areas for Improvement:", 20, y);
-        doc.text(doc.splitTextToSize(review.managerImprovements, 170), 20, y + 7);
-        y += 40;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        doc.setTextColor(0);
+
+        const lines = doc.splitTextToSize(content || "N/A", 170);
+        doc.text(lines, 20, y);
+        y += (lines.length * 6) + 15; // Line height + spacing
+    };
+
+    addSection("Key Achievements", review.selfAchievements);
+    addSection("Employee Comments", review.selfComments || review.selfImprovements);
+
+    if (review.status === 'completed' || review.managerComments) {
+        if (review.managerImprovements) addSection("Areas for Improvement (Manager)", review.managerImprovements);
+        if (review.managerComments) addSection("Manager Comments", review.managerComments);
     }
 
-    if (review.managerComments) {
-        doc.text("Manager Comments:", 20, y);
-        doc.text(doc.splitTextToSize(review.managerComments, 170), 20, y + 7);
-    }
+    // Filename: Employee Name-performance review-period.pdf
+    const safeName = review.employeeName.replace(/[^a-z0-9]/gi, '_').trim();
+    const safePeriod = review.period.replace(/[^a-z0-9]/gi, '_').trim();
+    const filename = `${safeName}-performance review-${safePeriod}.pdf`;
 
-    doc.save("Review.pdf");
+    doc.save(filename);
 }
